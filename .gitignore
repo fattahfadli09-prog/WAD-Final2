@@ -1,0 +1,16 @@
+# Credentials — JANGAN masuk GitHub
+.env
+.env.local
+.env.production
+
+# Dependencies
+node_modules/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log

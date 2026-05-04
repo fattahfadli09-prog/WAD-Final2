@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TokoMultiSeller — Seller Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <!-- ENV Config — harus paling atas sebelum script lain -->
+  <script src="env-config.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+  <style>
+    /* Live preview: idle dots (before buyer chats) */
+    #livePreview .preview-idle-dots {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      padding: 12px 0;
+    }
+    #livePreview .preview-idle-dots span {
+      width: 9px; height: 9px;
+      background: var(--border);
+      border-radius: 50%;
+      animation: lpa .9s infinite;
+    }
+    #livePreview .preview-idle-dots span:nth-child(2) { animation-delay:.15s; }
+    #livePreview .preview-idle-dots span:nth-child(3) { animation-delay:.3s; }
+
+    /* Live preview: dots on top, text below (separated) */
+    #livePreview .preview-active {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+    }
+    #livePreview .typing-dots {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+    }
+    #livePreview .typing-dots span {
+      width: 9px; height: 9px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: lpa .9s infinite;
+    }
+    #livePreview .typing-dots span:nth-child(2) { animation-delay:.15s; }
+    #livePreview .typing-dots span:nth-child(3) { animation-delay:.3s; }
+    @keyframes lpa { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-7px)} }
+    #livePreview .preview-text {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      text-align: center;
+    }
+    #livePreview:empty::after {
+      content: '';
+      display: block;
+      height: 24px;
+    }
+
+    /* Image preview */
+    .img-preview-box {
+      width: 72px; height: 72px;
+      background: var(--bg);
+      border-radius: 10px;
+      border: 1.5px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .img-preview-box img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+
+    /* Notification popup */
+    .notification-popup {
+      position: fixed;
+      top: 20px; left: 50%; transform: translateX(-50%);
+      background: var(--accent);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 20px;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      z-index: 1100;
+      box-shadow: 0 8px 24px rgba(45,106,79,.35);
+      animation: slideDown .4s ease-out;
+    }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateX(-50%) translateY(-16px); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+  </style>
+</head>
+
+<body>
+<div class="dashboard">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <div class="logo-icon">🏪</div>
+        <div class="logo-text">
+          <h2>TokoMultiSeller</h2>
+          <p>Seller Dashboard</p>
+        </div>
+      </div>
+    </div>
+    <nav class="nav-menu">
+      <button class="nav-item active" onclick="switchSeller(1)">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+        <span>🏪 Pak Budi Supra</span>
+      </button>
+      <button class="nav-item" onclick="switchSeller(2)">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+        <span>🏪 Pak Dadang</span>
+      </button>
+      <button class="nav-item" onclick="switchSeller(3)">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+        <span>🏪 Dagangan Pak Haji</span>
+      </button>
+      <button class="nav-item" onclick="switchSeller(4)">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+        <span>🏪 Pak Sapri</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main-content">
+
+    <!-- TOP BAR -->
+    <div class="top-bar">
+      <div class="page-title">
+        <h1>🏪 Seller Dashboard</h1>
+        <p id="sellerSubtitle">👤 Pak Budi Supra</p>
+      </div>
+      <div class="user-info">
+        <div class="status-badge">
+          <span class="status-dot"></span>
+          <span id="connectionStatus">Online</span>
+        </div>
+        <button class="btn-danger" onclick="clearAllInventory()" style="padding:8px 14px;font-size:12px;">🗑️ Clear Offers</button>
+        <button class="btn-warning" onclick="clearAllOrders()" style="padding:8px 14px;font-size:12px;">📦 Clear Orders</button>
+      </div>
+    </div>
+
+    <!-- TOGGLE -->
+    <div class="dashboard-toggle">
+      <button class="toggle-btn active" id="showOffersBtn" onclick="toggleView('offers')">📝 Send Offer</button>
+      <button class="toggle-btn" id="showDashboardBtn" onclick="toggleView('dashboard')">📊 Order Dashboard</button>
+    </div>
+
+    <!-- OFFERS VIEW -->
+    <div id="sellerFormsContainer" class="seller-forms-container">
+      <!-- Live Preview -->
+      <div class="live-preview-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <h3 style="font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;color:var(--text);">📡 Live Activity</h3>
+          <span style="font-size:11px;color:var(--text-muted);">⚡ Real-time</span>
+        </div>
+        <div id="livePreview">
+            <div class="preview-idle-dots"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+
+      <!-- Seller Form Area -->
+      <div id="sellerFormArea">
+
+        <!-- SELLER 1 -->
+        <div class="seller-card" id="sellerForm1">
+          <div class="seller-header">
+            <div class="seller-avatar-lg">👑</div>
+            <div class="seller-name">
+              <h3>🏪 Pak Budi Supra</h3>
+              <p>Premium products</p>
+            </div>
+          </div>
+          <label class="form-label">📞 Phone Number</label>
+          <input type="text" class="form-input" id="seller1PhoneInput" placeholder="Your phone number">
+          <label class="form-label">📍 Store Location</label>
+          <div class="seller-location-buttons">
+            <button type="button" class="seller-location-btn" onclick="getSellerCurrentLocation(1)">📍 Use Current Location</button>
+          </div>
+          <div class="map-container"><div id="sellerMap1" class="seller-map"></div></div>
+          <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Click map to select location, or type manually</p>
+          <div class="seller-manual-address">
+            <textarea id="seller1LocationManual" rows="2" class="form-input" placeholder="Type store address manually" style="resize:vertical;"></textarea>
+          </div>
+          <input type="hidden" id="seller1LocationInput" value="">
+          <input type="hidden" id="seller1Lat" value="">
+          <input type="hidden" id="seller1Lng" value="">
+          <div id="seller1SelectedLocation" class="seller-selected-location" style="display:none;">
+            <strong>📍 Lokasi:</strong><br><span id="seller1LocationDisplay"></span>
+          </div>
+          <label class="form-label">📦 Product Name</label>
+          <input type="text" class="form-input" id="seller1Product" placeholder="Product name">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <div>
+              <label class="form-label">💰 Price (Rp)</label>
+              <input type="number" class="form-input" id="seller1Price" placeholder="Price">
+            </div>
+            <div>
+              <label class="form-label">📊 Stock</label>
+              <input type="number" class="form-input" id="seller1Stock" value="0" min="0" max="999">
+            </div>
+          </div>
+          <label class="form-label">📝 Additional Notes</label>
+          <textarea class="form-input" id="seller1Notes" placeholder="Product notes" rows="2" style="resize:vertical;"></textarea>
+          <label class="form-label">📸 Product Photo</label>
+          <div style="display:flex;gap:12px;align-items:center;">
+            <input type="file" class="form-input" id="seller1Image" accept="image/*" style="flex:1;" onchange="previewImage(1)">
+            <div id="seller1ImagePreview" class="img-preview-box">🖼️</div>
+          </div>
+          <button class="seller-submit-btn" id="sellerBtn1" onclick="submitResponseWithLocation(1)">✨ Send Offer</button>
+          <span class="seller-status" id="seller1Status">✅ Siap</span>
+        </div>
+
+        <!-- SELLER 2 -->
+        <div class="seller-card" id="sellerForm2" style="display:none;">
+          <div class="seller-header">
+            <div class="seller-avatar-lg">👑</div>
+            <div class="seller-name">
+              <h3>🏪 Pak Dadang</h3>
+              <p>Best quality</p>
+            </div>
+          </div>
+          <label class="form-label">📞 Phone Number</label>
+          <input type="text" class="form-input" id="seller2PhoneInput" placeholder="Your phone number">
+          <label class="form-label">📍 Store Location</label>
+          <div class="seller-location-buttons">
+            <button type="button" class="seller-location-btn" onclick="getSellerCurrentLocation(2)">📍 Use Current Location</button>
+          </div>
+          <div class="map-container"><div id="sellerMap2" class="seller-map"></div></div>
+          <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Click map to select location, or type manually</p>
+          <div class="seller-manual-address">
+            <textarea id="seller2LocationManual" rows="2" class="form-input" placeholder="Type store address manually" style="resize:vertical;"></textarea>
+          </div>
+          <input type="hidden" id="seller2LocationInput" value="">
+          <input type="hidden" id="seller2Lat" value="">
+          <input type="hidden" id="seller2Lng" value="">
+          <div id="seller2SelectedLocation" class="seller-selected-location" style="display:none;">
+            <strong>📍 Lokasi:</strong><br><span id="seller2LocationDisplay"></span>
+          </div>
+          <label class="form-label">📦 Product Name</label>
+          <input type="text" class="form-input" id="seller2Product" placeholder="Product name">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <div><label class="form-label">💰 Price (Rp)</label><input type="number" class="form-input" id="seller2Price" placeholder="Price"></div>
+            <div><label class="form-label">📊 Stock</label><input type="number" class="form-input" id="seller2Stock" value="0" min="0" max="999"></div>
+          </div>
+          <label class="form-label">📝 Additional Notes</label>
+          <textarea class="form-input" id="seller2Notes" placeholder="Product notes" rows="2" style="resize:vertical;"></textarea>
+          <label class="form-label">📸 Product Photo</label>
+          <div style="display:flex;gap:12px;align-items:center;">
+            <input type="file" class="form-input" id="seller2Image" accept="image/*" style="flex:1;" onchange="previewImage(2)">
+            <div id="seller2ImagePreview" class="img-preview-box">🖼️</div>
+          </div>
+          <button class="seller-submit-btn" id="sellerBtn2" onclick="submitResponseWithLocation(2)">✨ Send Offer</button>
+          <span class="seller-status" id="seller2Status">✅ Siap</span>
+        </div>
+
+        <!-- SELLER 3 -->
+        <div class="seller-card" id="sellerForm3" style="display:none;">
+          <div class="seller-header">
+            <div class="seller-avatar-lg">👑</div>
+            <div class="seller-name">
+              <h3>🏪 Dagangan Pak Haji</h3>
+              <p>Fresh & authentic</p>
+            </div>
+          </div>
+          <label class="form-label">📞 Phone Number</label>
+          <input type="text" class="form-input" id="seller3PhoneInput" placeholder="Your phone number">
+          <label class="form-label">📍 Store Location</label>
+          <div class="seller-location-buttons">
+            <button type="button" class="seller-location-btn" onclick="getSellerCurrentLocation(3)">📍 Use Current Location</button>
+          </div>
+          <div class="map-container"><div id="sellerMap3" class="seller-map"></div></div>
+          <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Click map to select location, or type manually</p>
+          <div class="seller-manual-address">
+            <textarea id="seller3LocationManual" rows="2" class="form-input" placeholder="Type store address manually" style="resize:vertical;"></textarea>
+          </div>
+          <input type="hidden" id="seller3LocationInput" value="">
+          <input type="hidden" id="seller3Lat" value="">
+          <input type="hidden" id="seller3Lng" value="">
+          <div id="seller3SelectedLocation" class="seller-selected-location" style="display:none;">
+            <strong>📍 Lokasi:</strong><br><span id="seller3LocationDisplay"></span>
+          </div>
+          <label class="form-label">📦 Product Name</label>
+          <input type="text" class="form-input" id="seller3Product" placeholder="Product name">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <div><label class="form-label">💰 Price (Rp)</label><input type="number" class="form-input" id="seller3Price" placeholder="Price"></div>
+            <div><label class="form-label">📊 Stock</label><input type="number" class="form-input" id="seller3Stock" value="0" min="0" max="999"></div>
+          </div>
+          <label class="form-label">📝 Additional Notes</label>
+          <textarea class="form-input" id="seller3Notes" placeholder="Product notes" rows="2" style="resize:vertical;"></textarea>
+          <label class="form-label">📸 Product Photo</label>
+          <div style="display:flex;gap:12px;align-items:center;">
+            <input type="file" class="form-input" id="seller3Image" accept="image/*" style="flex:1;" onchange="previewImage(3)">
+            <div id="seller3ImagePreview" class="img-preview-box">🖼️</div>
+          </div>
+          <button class="seller-submit-btn" id="sellerBtn3" onclick="submitResponseWithLocation(3)">✨ Send Offer</button>
+          <span class="seller-status" id="seller3Status">✅ Siap</span>
+        </div>
+
+        <!-- SELLER 4 -->
+        <div class="seller-card" id="sellerForm4" style="display:none;">
+          <div class="seller-header">
+            <div class="seller-avatar-lg">👑</div>
+            <div class="seller-name">
+              <h3>🏪 Pak Sapri</h3>
+              <p>Trusted seller</p>
+            </div>
+          </div>
+          <label class="form-label">📞 Phone Number</label>
+          <input type="text" class="form-input" id="seller4PhoneInput" placeholder="Your phone number">
+          <label class="form-label">📍 Store Location</label>
+          <div class="seller-location-buttons">
+            <button type="button" class="seller-location-btn" onclick="getSellerCurrentLocation(4)">📍 Use Current Location</button>
+          </div>
+          <div class="map-container"><div id="sellerMap4" class="seller-map"></div></div>
+          <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Click map to select location, or type manually</p>
+          <div class="seller-manual-address">
+            <textarea id="seller4LocationManual" rows="2" class="form-input" placeholder="Type store address manually" style="resize:vertical;"></textarea>
+          </div>
+          <input type="hidden" id="seller4LocationInput" value="">
+          <input type="hidden" id="seller4Lat" value="">
+          <input type="hidden" id="seller4Lng" value="">
+          <div id="seller4SelectedLocation" class="seller-selected-location" style="display:none;">
+            <strong>📍 Lokasi:</strong><br><span id="seller4LocationDisplay"></span>
+          </div>
+          <label class="form-label">📦 Product Name</label>
+          <input type="text" class="form-input" id="seller4Product" placeholder="Product name">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <div><label class="form-label">💰 Price (Rp)</label><input type="number" class="form-input" id="seller4Price" placeholder="Price"></div>
+            <div><label class="form-label">📊 Stock</label><input type="number" class="form-input" id="seller4Stock" value="0" min="0" max="999"></div>
+          </div>
+          <label class="form-label">📝 Additional Notes</label>
+          <textarea class="form-input" id="seller4Notes" placeholder="Product notes" rows="2" style="resize:vertical;"></textarea>
+          <label class="form-label">📸 Product Photo</label>
+          <div style="display:flex;gap:12px;align-items:center;">
+            <input type="file" class="form-input" id="seller4Image" accept="image/*" style="flex:1;" onchange="previewImage(4)">
+            <div id="seller4ImagePreview" class="img-preview-box">🖼️</div>
+          </div>
+          <button class="seller-submit-btn" id="sellerBtn4" onclick="submitResponseWithLocation(4)">✨ Send Offer</button>
+          <span class="seller-status" id="seller4Status">✅ Siap</span>
+        </div>
+
+      </div><!-- /sellerFormArea -->
+    </div><!-- /sellerFormsContainer -->
+
+    <!-- DASHBOARD VIEW -->
+    <div id="dashboardContainer" class="dashboard-container">
+      <div class="sales-dashboard">
+        <div class="sales-header">
+          <h3>📊 Sales Dashboard</h3>
+          <div class="daily-sales">
+            <span class="label">Today's Sales:</span>
+            <span class="amount" id="todaySalesAmount">Rp 0</span>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-card"><div class="stat-value" id="totalOrdersCount">0</div><div class="stat-label">Total Orders</div></div>
+            <div class="stat-card"><div class="stat-value" id="pendingOrdersCount">0</div><div class="stat-label">Pending</div></div>
+            <div class="stat-card"><div class="stat-value" id="completedOrdersCount">0</div><div class="stat-label">Completed</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="order-tabs">
+        <button class="order-tab active" data-status="all" onclick="filterOrders('all')">📋 All</button>
+        <button class="order-tab" data-status="pending" onclick="filterOrders('pending')">⏳ Pending</button>
+        <button class="order-tab" data-status="confirmed" onclick="filterOrders('confirmed')">✓ Confirmed</button>
+        <button class="order-tab" data-status="processing" onclick="filterOrders('processing')">⚙️ Processing</button>
+        <button class="order-tab" data-status="shipped" onclick="filterOrders('shipped')">🚚 Shipped</button>
+        <button class="order-tab" data-status="delivered" onclick="filterOrders('delivered')">✅ Delivered</button>
+        <button class="order-tab" data-status="cancelled" onclick="filterOrders('cancelled')">❌ Cancelled</button>
+      </div>
+
+      <div id="ordersDashboardList" style="max-height:55vh;overflow-y:auto;padding:4px;">
+        <div class="empty-orders">Loading orders...</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- BOTTOM NAV (mobile) -->
+<div class="bottom-nav">
+  <button class="nav-item active" onclick="switchSeller(1)"><span>🏪</span><span>Pak Budi</span></button>
+  <button class="nav-item" onclick="switchSeller(2)"><span>🏪</span><span>Pak Dadang</span></button>
+  <button class="nav-item" onclick="switchSeller(3)"><span>🏪</span><span>Pak Haji</span></button>
+  <button class="nav-item" onclick="switchSeller(4)"><span>🏪</span><span>Pak Sapri</span></button>
+</div>
+
+<div id="notificationPopup" class="notification-popup" style="display:none;">
+  <div id="notificationText">🔔 Buyer is searching for a product!</div>
+</div>
+
+<div id="floatingOrderNotification" class="order-notification" style="display:none;">
+  <button class="notif-close-btn" onclick="document.getElementById('floatingOrderNotification').style.display='none'">✕</button>
+  <div id="floatingNotifContent"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="firebase-config.js"></script>
+<script src="seller-app.js"></script>
+
+<script>
+  const sellerData = {1:{name:'Pak Budi Supra'},2:{name:'Pak Dadang'},3:{name:'Dagangan Pak Haji'},4:{name:'Pak Sapri'}};
+  let sellerMaps = {1:null,2:null,3:null,4:null};
+  let sellerMarkers = {1:null,2:null,3:null,4:null};
+
+  function switchSeller(n) {
+    document.querySelectorAll('.sidebar .nav-item').forEach((el,i)=>el.classList.toggle('active',i===n-1));
+    document.querySelectorAll('.bottom-nav .nav-item').forEach((el,i)=>el.classList.toggle('active',i===n-1));
+    for(let i=1;i<=4;i++) document.getElementById(`sellerForm${i}`).style.display = i===n ? 'block' : 'none';
+    document.getElementById('sellerSubtitle').textContent = `👤 ${sellerData[n].name}`;
+    window.currentActiveSeller = n;
+    if (typeof loadOrdersDashboard === 'function') loadOrdersDashboard();
+    setTimeout(() => initSellerMap(n), 300);
+  }
+
+  function initSellerMap(n) {
+    const mapId = `sellerMap${n}`;
+    const container = document.getElementById(mapId);
+    if (sellerMaps[n]) { setTimeout(() => sellerMaps[n] && sellerMaps[n].invalidateSize(), 100); return; }
+    if (!container) return;
+    if (container.clientWidth === 0) { setTimeout(() => initSellerMap(n), 200); return; }
+    sellerMaps[n] = L.map(mapId).setView([-6.2088,106.8456],13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(sellerMaps[n]);
+    sellerMaps[n].on('click', async function(e) {
+      const lat=e.latlng.lat, lng=e.latlng.lng;
+      if(sellerMarkers[n]) sellerMarkers[n].remove();
+      sellerMarkers[n] = L.marker([lat,lng]).addTo(sellerMaps[n]);
+      document.getElementById(`seller${n}Lat`).value = lat;
+      document.getElementById(`seller${n}Lng`).value = lng;
+      try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=id`);
+        const d = await r.json();
+        const addr = d.display_name || `${lat}, ${lng}`;
+        document.getElementById(`seller${n}LocationInput`).value = addr;
+        document.getElementById(`seller${n}LocationDisplay`).innerHTML = addr;
+        document.getElementById(`seller${n}SelectedLocation`).style.display = 'block';
+        document.getElementById(`seller${n}LocationManual`).value = addr;
+      } catch(err) {
+        document.getElementById(`seller${n}LocationInput`).value = `${lat}, ${lng}`;
+      }
+    });
+    setTimeout(() => sellerMaps[n] && sellerMaps[n].invalidateSize(), 100);
+  }
+
+  function getSellerCurrentLocation(n) {
+    if (!navigator.geolocation) { alert('Geolocation tidak didukung'); return; }
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const lat=pos.coords.latitude, lng=pos.coords.longitude;
+      if (!sellerMaps[n]) initSellerMap(n);
+      if (sellerMaps[n]) {
+        sellerMaps[n].setView([lat,lng],15);
+        if (sellerMarkers[n]) sellerMarkers[n].remove();
+        sellerMarkers[n] = L.marker([lat,lng]).addTo(sellerMaps[n]);
+        sellerMaps[n].invalidateSize();
+      }
+      document.getElementById(`seller${n}Lat`).value = lat;
+      document.getElementById(`seller${n}Lng`).value = lng;
+      try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=id`);
+        const d = await r.json();
+        const addr = d.display_name || `${lat}, ${lng}`;
+        document.getElementById(`seller${n}LocationInput`).value = addr;
+        document.getElementById(`seller${n}LocationDisplay`).innerHTML = addr;
+        document.getElementById(`seller${n}SelectedLocation`).style.display = 'block';
+        document.getElementById(`seller${n}LocationManual`).value = addr;
+      } catch(e) { document.getElementById(`seller${n}LocationInput`).value = `${lat}, ${lng}`; }
+    }, () => alert('Tidak bisa mendapatkan lokasi. Cek pengaturan GPS.'));
+  }
+
+  function submitResponseWithLocation(n) {
+    const manual = document.getElementById(`seller${n}LocationManual`).value.trim();
+    if (manual) document.getElementById(`seller${n}LocationInput`).value = manual;
+    submitResponse(n);
+  }
+
+  function previewImage(n) {
+    const file = document.getElementById(`seller${n}Image`).files[0];
+    const preview = document.getElementById(`seller${n}ImagePreview`);
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = e => { preview.innerHTML = `<img src="${e.target.result}" alt="preview">`; };
+      reader.readAsDataURL(file);
+    } else {
+      preview.innerHTML = '🖼️';
+    }
+  }
+
+  function showNotification(msg) {
+    const p = document.getElementById('notificationPopup');
+    document.getElementById('notificationText').innerHTML = msg;
+    p.style.display = 'block';
+    setTimeout(() => { p.style.display = 'none'; }, 5000);
+  }
+
+  function toggleView(view) {
+    const offers = document.getElementById('sellerFormsContainer');
+    const dash = document.getElementById('dashboardContainer');
+    const offBtn = document.getElementById('showOffersBtn');
+    const dashBtn = document.getElementById('showDashboardBtn');
+    if (view === 'offers') {
+      offers.classList.remove('hide'); dash.classList.remove('active');
+      offBtn.classList.add('active'); dashBtn.classList.remove('active');
+    } else {
+      offers.classList.add('hide'); dash.classList.add('active');
+      offBtn.classList.remove('active'); dashBtn.classList.add('active');
+      if (typeof loadOrdersDashboard === 'function') loadOrdersDashboard();
+    }
+  }
+
+  window.currentActiveSeller = 1;
+
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => { for(let i=1;i<=4;i++) initSellerMap(i); }, 500);
+  });
+
+  window.addEventListener('resize', function() {
+    for(let i=1;i<=4;i++) if(sellerMaps[i]) sellerMaps[i].invalidateSize();
+  });
+</script>
+</body>
+</html>

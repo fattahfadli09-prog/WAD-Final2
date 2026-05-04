@@ -1,0 +1,9 @@
+{
+  "name": "tokoseller",
+  "version": "1.0.0",
+  "description": "Multi-seller marketplace",
+  "scripts": {
+    "build": "node build-env.js",
+    "start": "node server-local.js"
+  }
+}
